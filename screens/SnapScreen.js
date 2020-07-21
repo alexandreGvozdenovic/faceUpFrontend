@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef} from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 
 import { Camera } from 'expo-camera';
-
 import { withNavigationFocus } from 'react-navigation';
-
+import {connect} from 'react-redux';
 import IconFontAwesome from 'react-native-vector-icons/FontAwesome';
 import IconIonic from 'react-native-vector-icons/Ionicons';
 
@@ -14,11 +13,12 @@ function SnapScreen(props) {
 
   const [hasPermission, setHasPermission] = useState(null);
   const [type, setType] = useState(Camera.Constants.Type.back);
-  const [flash, setFlash] = useState(Camera.Constants.FlashMode.torch);
+  const [flash, setFlash] = useState(Camera.Constants.FlashMode.off);
   
   var camera = useRef(null);
  
   const [visible, setVisible] = useState(false);
+  const [overlayText, setOverlayText] = useState('Loading');
 
   useEffect(() => {  
     (async () => {
@@ -26,12 +26,19 @@ function SnapScreen(props) {
         setHasPermission(status === 'granted');
     })();
   }, []);
-  
+
+  const overlayBackdropPress = () => {
+    if(overlayText === 'Error no face detected (click out to dismiss') {
+      setVisible(false);
+    }
+  }
+  var data = new FormData();
   var cameraDisplay;
   if(hasPermission && props.isFocused){
     cameraDisplay = <Camera 
       style={{ flex: 1 }}
       type={type}
+      ratio='16:9'
       flashMode={flash}
       ref={ref => (camera = ref)}
     >
@@ -70,9 +77,9 @@ function SnapScreen(props) {
             }}
             onPress={() => {
                 setFlash(
-                  flash === Camera.Constants.FlashMode.torch
-                    ? Camera.Constants.FlashMode.off
-                    : Camera.Constants.FlashMode.torch
+                  flash === Camera.Constants.FlashMode.off
+                    ? Camera.Constants.FlashMode.torch
+                    : Camera.Constants.FlashMode.off
                 );
               }}
             >
@@ -91,8 +98,8 @@ function SnapScreen(props) {
 
   return (
     <View style={{flex: 1}}>
-        <Overlay isVisible={visible}  width="auto" height="auto">
-            <Text>Loading</Text>
+        <Overlay isVisible={visible} onBackdropPress={() => overlayBackdropPress()}  width="auto" height="auto">
+          <Text>{overlayText}</Text>
         </Overlay>
         
         {cameraDisplay}
@@ -111,13 +118,43 @@ function SnapScreen(props) {
                 setVisible(true);
                 if (camera) {
                     let photo = await camera.takePictureAsync({quality : 0.7});
-                    setVisible(false);
+                    data.append('picture', {
+                      uri: photo.uri,
+                      type: 'image/jpeg',
+                      name: 'user_photo.jpg',
+                    });
+                    
+                    var rawResponse = await fetch("http://192.168.1.27:3000/upload", {
+                      method: 'post',
+                      body: data
+                    });
+                    var response = await rawResponse.json();
+                    console.log(response);
+                    if(response.error === 'Pas de visage détécté') {
+                      setOverlayText('Error no face detected (click out to dismiss)')
+                      // setTimeout(setVisible(false),5000);
+                    } else {
+                      props.addPicture(response);
+                      setVisible(false);
+                    }
                 }
             }}
         />
-
     </View>
   );
 }
 
-export default withNavigationFocus(SnapScreen);
+
+function mapDispatchToProps(dispatch) {
+  return {
+    addPicture: function(picture) { 
+      dispatch( {type: 'addPicture', picture: picture })
+    }
+  }
+}
+
+const reduxConnect = connect(
+    null, 
+    mapDispatchToProps
+)(SnapScreen);
+export default withNavigationFocus(reduxConnect);

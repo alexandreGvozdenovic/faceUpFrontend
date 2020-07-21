@@ -12,6 +12,12 @@ import {createBottomTabNavigator} from 'react-navigation-tabs';
 
 import { Ionicons } from '@expo/vector-icons';
 
+import {createStore, combineReducers} from 'redux';
+import {Provider} from 'react-redux';
+import photos from './reducers/photos'
+
+const store = createStore(combineReducers({photos}));
+
 var BottomNavigator = createBottomTabNavigator({
   Snap: SnapScreen,
   Gallery: GalleryScreen
@@ -47,4 +53,11 @@ StackNavigator = createStackNavigator({
 {headerMode: 'none'}
 );  
 
-export default Navigation = createAppContainer(StackNavigator);
+const Navigation = createAppContainer(StackNavigator);
+export default function App() {
+  return (
+    <Provider store={store}>
+      <Navigation />
+    </Provider>
+  );
+ }
